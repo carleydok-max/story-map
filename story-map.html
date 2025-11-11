@@ -118,7 +118,7 @@
       const title = rec["Story Title"] || "Untitled";
       const text = rec["Story Text"] || "";
       const img = rec["Image URL"] || "";
-      const src = rec["Source URL"] || "";
+      const fullURL = rec["FullStoryURL"] || rec["Source URL"] || "";
 
       const div = document.createElement('div'); 
       div.className = 'story-popup';
@@ -137,48 +137,21 @@
 
       const p = document.createElement('div'); 
       p.className = 'story-text'; 
+      p.textContent = text.slice(0,150) + '... '; // short snippet
 
-      if(text.length > 150){
-        const shortText = text.slice(0,150) + '... ';
-        p.textContent = shortText;
-
-        const moreLink = document.createElement('a');
-        moreLink.href = '#';
-        moreLink.textContent = 'Read More';
-        moreLink.className = 'read-more';
-
-        moreLink.addEventListener('click', function(e){
-          e.preventDefault();
-          p.textContent = text; // full story
-          if(src){
-            const a = document.createElement('a');
-            a.className='story-link';
-            a.href = src;
-            a.target='_blank';
-            a.rel='noopener noreferrer';
-            a.textContent=' Read original →';
-            p.appendChild(a);
-          }
-        });
-
-        p.appendChild(moreLink);
-      } else {
-        p.textContent = text;
+      if(fullURL){
+        const readMore = document.createElement('a');
+        readMore.href = fullURL;
+        readMore.textContent = 'Read More';
+        readMore.className = 'read-more';
+        readMore.target = '_blank';
+        readMore.rel = 'noopener noreferrer';
+        p.appendChild(readMore);
       }
 
       div.appendChild(p);
 
-      if(text.length <= 150 && src){ 
-        const a = document.createElement('a');
-        a.className='story-link';
-        a.href = src;
-        a.target='_blank';
-        a.rel='noopener noreferrer';
-        a.textContent='Read original →';
-        div.appendChild(a);
-      }
-
-      return div; // Return DOM node, not innerHTML
+      return div; // Return DOM node
     }
 
     (async function init() {
