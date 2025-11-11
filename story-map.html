@@ -33,10 +33,12 @@
       font-size: 1rem; 
       margin-bottom: 8px; 
     }
-    .story-link { 
+    .story-link, .read-more { 
       font-size: 0.9rem; 
       color: #0b5fff; 
       text-decoration: none; 
+      margin-left: 4px;
+      cursor: pointer;
     }
 
     /* Loading message */
@@ -145,23 +147,7 @@
         const moreLink = document.createElement('a');
         moreLink.href = '#';
         moreLink.textContent = 'Read More';
-        moreLink.style.color = '#0b5fff';
-        moreLink.style.textDecoration = 'none';
-        moreLink.style.marginLeft = '4px';
-
-        moreLink.addEventListener('click', function(e){
-          e.preventDefault();
-          p.textContent = text;
-          if(src){
-            const a = document.createElement('a');
-            a.className='story-link';
-            a.href = src;
-            a.target='_blank';
-            a.rel='noopener noreferrer';
-            a.textContent=' Read original →';
-            p.appendChild(a);
-          }
-        });
+        moreLink.className = 'read-more';
 
         p.appendChild(moreLink);
       } else {
@@ -203,20 +189,7 @@
             }
             if(!Number.isFinite(lat)||!Number.isFinite(lng)){ log("Skipping: cannot geocode " + rec.Town + ", " + rec.State); continue; }
 
-            const marker=L.marker([lat,lng]);
-            marker.bindPopup(makePopupHTML(rec), { maxWidth:400 });
-            marker.addTo(markersLayer);
+            const marker = L.marker([lat,lng]);
+            marker.bindPopup(makePopupHTML(rec), { maxWidth: 400 });
 
-          } catch(errRow){ log("Row error: "+errRow); continue; }
-        }
-
-        loadingEl.style.display='none';
-        log("Map initialization complete.");
-
-      } catch(err){ console.error(err); loadingEl.textContent="Failed to load stories: "+err.message; }
-    })();
-
-  })();
-  </script>
-</body>
-</html>
+            // Attach Read More
