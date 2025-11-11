@@ -11,7 +11,6 @@
     html, body, #map { height: 100%; margin:0; padding:0; }
     #map { min-height: 400px; }
 
-    /* Popup styling */
     .story-popup { 
       max-width: 400px; 
       font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; 
@@ -41,7 +40,6 @@
       cursor: pointer;
     }
 
-    /* Loading message */
     .loading { 
       position: absolute; 
       left:10px; top:10px; 
@@ -116,7 +114,7 @@
       } catch(err) { log("Geocode fetch error: " + err); return null; }
     }
 
-    function makePopupHTML(rec) {
+    function makePopupNode(rec) {
       const title = rec["Story Title"] || "Untitled";
       const text = rec["Story Text"] || "";
       const img = rec["Image URL"] || "";
@@ -149,6 +147,20 @@
         moreLink.textContent = 'Read More';
         moreLink.className = 'read-more';
 
+        moreLink.addEventListener('click', function(e){
+          e.preventDefault();
+          p.textContent = text; // full story
+          if(src){
+            const a = document.createElement('a');
+            a.className='story-link';
+            a.href = src;
+            a.target='_blank';
+            a.rel='noopener noreferrer';
+            a.textContent=' Read original →';
+            p.appendChild(a);
+          }
+        });
+
         p.appendChild(moreLink);
       } else {
         p.textContent = text;
@@ -166,7 +178,7 @@
         div.appendChild(a);
       }
 
-      return div.innerHTML;
+      return div; // Return DOM node, not innerHTML
     }
 
     (async function init() {
@@ -190,6 +202,19 @@
             if(!Number.isFinite(lat)||!Number.isFinite(lng)){ log("Skipping: cannot geocode " + rec.Town + ", " + rec.State); continue; }
 
             const marker = L.marker([lat,lng]);
-            marker.bindPopup(makePopupHTML(rec), { maxWidth: 400 });
+            marker.bindPopup(makePopupNode(rec), { maxWidth: 400 });
+            marker.addTo(markersLayer);
 
-            // Attach Read More
+          } catch(errRow){ log("Row error: "+errRow); continue; }
+        }
+
+        loadingEl.style.display='none';
+        log("Map initialization complete.");
+
+      } catch(err){ console.error(err); loadingEl.textContent="Failed to load stories: "+err.message; }
+    })();
+
+  })();
+  </script>
+</body>
+</html>
