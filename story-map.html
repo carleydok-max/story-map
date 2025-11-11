@@ -8,14 +8,48 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
-    html,body,#map { height: 100%; margin:0; padding:0; }
-    #map { min-height: 600px; }
-    .story-popup { max-width: 340px; font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; }
-    .story-popup img { max-width: 100%; height: auto; display:block; margin-bottom:6px; border-radius:6px; }
-    .story-title { font-weight:700; margin-bottom:6px; font-size:1rem; }
-    .story-text { font-size:0.95rem; margin-bottom:6px; line-height:1.25; }
-    .story-link { font-size:0.85rem; color:#0b5fff; text-decoration: none; }
-    .loading { position: absolute; left:10px; top:10px; z-index: 1000; background: rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-size:14px;}
+    html, body, #map { height: 100%; margin:0; padding:0; }
+    #map { min-height: 400px; }
+
+    /* Popup styling */
+    .story-popup { 
+      max-width: 400px; 
+      font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; 
+      line-height: 1.4; 
+    }
+    .story-popup img { 
+      max-width: 100%; 
+      height: auto; 
+      display: block; 
+      margin-bottom: 8px; 
+      border-radius: 8px; 
+    }
+    .story-title { 
+      font-weight: 700; 
+      margin-bottom: 8px; 
+      font-size: 1.1rem; 
+    }
+    .story-text { 
+      font-size: 1rem; 
+      margin-bottom: 8px; 
+    }
+    .story-link { 
+      font-size: 0.9rem; 
+      color: #0b5fff; 
+      text-decoration: none; 
+    }
+
+    /* Loading message */
+    .loading { 
+      position: absolute; 
+      left:10px; top:10px; 
+      z-index: 1000; 
+      background: rgba(255,255,255,0.9); 
+      padding:8px 12px; 
+      border-radius:6px; 
+      box-shadow:0 2px 6px rgba(0,0,0,0.15); 
+      font-size:14px;
+    }
   </style>
 </head>
 <body>
@@ -86,11 +120,66 @@
       const img = rec["Image URL"] || "";
       const src = rec["Source URL"] || "";
 
-      const div = document.createElement('div'); div.className = 'story-popup';
-      if(img){ const i=document.createElement('img'); i.src=img; i.alt=title; div.appendChild(i); }
-      const h=document.createElement('div'); h.className='story-title'; h.textContent=title; div.appendChild(h);
-      const p=document.createElement('div'); p.className='story-text'; p.textContent=text; div.appendChild(p);
-      if(src){ const a=document.createElement('a'); a.className='story-link'; a.href=src; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent='Read original →'; div.appendChild(a); }
+      const div = document.createElement('div'); 
+      div.className = 'story-popup';
+
+      if(img){ 
+        const i = document.createElement('img'); 
+        i.src = img; 
+        i.alt = title; 
+        div.appendChild(i); 
+      }
+
+      const h = document.createElement('div'); 
+      h.className = 'story-title'; 
+      h.textContent = title; 
+      div.appendChild(h);
+
+      const p = document.createElement('div'); 
+      p.className = 'story-text'; 
+
+      if(text.length > 150){
+        const shortText = text.slice(0,150) + '... ';
+        p.textContent = shortText;
+
+        const moreLink = document.createElement('a');
+        moreLink.href = '#';
+        moreLink.textContent = 'Read More';
+        moreLink.style.color = '#0b5fff';
+        moreLink.style.textDecoration = 'none';
+        moreLink.style.marginLeft = '4px';
+
+        moreLink.addEventListener('click', function(e){
+          e.preventDefault();
+          p.textContent = text;
+          if(src){
+            const a = document.createElement('a');
+            a.className='story-link';
+            a.href = src;
+            a.target='_blank';
+            a.rel='noopener noreferrer';
+            a.textContent=' Read original →';
+            p.appendChild(a);
+          }
+        });
+
+        p.appendChild(moreLink);
+      } else {
+        p.textContent = text;
+      }
+
+      div.appendChild(p);
+
+      if(text.length <= 150 && src){ 
+        const a = document.createElement('a');
+        a.className='story-link';
+        a.href = src;
+        a.target='_blank';
+        a.rel='noopener noreferrer';
+        a.textContent='Read original →';
+        div.appendChild(a);
+      }
+
       return div.innerHTML;
     }
 
@@ -115,7 +204,7 @@
             if(!Number.isFinite(lat)||!Number.isFinite(lng)){ log("Skipping: cannot geocode " + rec.Town + ", " + rec.State); continue; }
 
             const marker=L.marker([lat,lng]);
-            marker.bindPopup(makePopupHTML(rec), { maxWidth:380 });
+            marker.bindPopup(makePopupHTML(rec), { maxWidth:400 });
             marker.addTo(markersLayer);
 
           } catch(errRow){ log("Row error: "+errRow); continue; }
