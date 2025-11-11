@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>US Small-Town Story Map</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    html,body,#map { height: 100%; margin:0; padding:0; }
+    #map { min-height: 600px; }
+    .story-popup { max-width: 340px; font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; }
+    .story-popup img { max-width: 100%; height: auto; display:block; margin-bottom:6px; border-radius:6px; }
+    .story-title { font-weight:700; margin-bottom:6px; font-size:1rem; }
+    .story-text { font-size:0.95rem; margin-bottom:6px; line-height:1.25; }
+    .story-link { font-size:0.85rem; color:#0b5fff; text-decoration: none; }
+    .loading { position: absolute; left:10px; top:10px; z-index: 1000; background: rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-size:14px;}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="loading" class="loading">Loading stories…</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+  (function () {
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQu4xVUDEmfbVy7csmGazcSFn8V_MCwOlUWH1qc5s-oytwP_CtU_BkkszOZspsgOVoewMpL-ICYb86a/pub?output=csv";
+
+    const INITIAL_CENTER = [39.0, -98.5];
+    const INITIAL_ZOOM = 4;
+
+    const GEOCODE_ENDPOINT = "https://nominatim.openstreetmap.org/search";
+
+    const map = L.map('map', { minZoom: 3 }).setView(INITIAL_CENTER, INITIAL_ZOOM);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markersLayer = L.layerGroup().addTo(map);
+    const loadingEl = document.getElementById('loading');
+
+    function log(msg) { console.log("[StoryMap] " + msg); }
+
+    function loadSheetCSV(url) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(url, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            if (results && results.data) resolve(results.data);
+            else reject(new Error("Failed to parse CSV"));
+          },
+          error: function(err) { reject(err); }
+        });
+      });
+    }
+
+    async function geocodeTownState(town, state) {
+      const key = `geo:${town.trim().toLowerCase()}:${state.trim().toLowerCase()}`;
+      try { const cached = localStorage.getItem(key); if (cached) return JSON.parse(cached); } catch(e){}
+
+      const q = encodeURIComponent(`${town}, ${state}, USA`);
+      const url = `${GEOCODE_ENDPOINT}?q=${q}&format=json&limit=1&addressdetails=0`;
+
+      try {
+        const resp = await fetch(url, { headers: { 'User-Agent': 'StoryMap/1.0 (+your-email-or-url)' } });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const json = await resp.json();
+        if (json && json.length) {
+          const { lat, lon } = json[0];
+          const out = { lat: parseFloat(lat), lng: parseFloat(lon) };
+          try { localStorage.setItem(key, JSON.stringify(out)); } catch(e){}
+          return out;
+        } else { log("No geocode result for " + town + ", " + state); return null; }
+      } catch(err) { log("Geocode fetch error: " + err); return null; }
+    }
+
+    function makePopupHTML(rec) {
+      const title = rec["Story Title"] || "Untitled";
+      const text = rec["Story Text"] || "";
+      const img = rec["Image URL"] || "";
+      const src = rec["Source URL"] || "";
+
+      const div = document.createElement('div'); div.className = 'story-popup';
+      if(img){ const i=document.createElement('img'); i.src=img; i.alt=title; div.appendChild(i); }
+      const h=document.createElement('div'); h.className='story-title'; h.textContent=title; div.appendChild(h);
+      const p=document.createElement('div'); p.className='story-text'; p.textContent=text; div.appendChild(p);
+      if(src){ const a=document.createElement('a'); a.className='story-link'; a.href=src; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent='Read original →'; div.appendChild(a); }
+      return div.innerHTML;
+    }
+
+    (async function init() {
+      try {
+        const rows = await loadSheetCSV(SHEET_CSV_URL);
+        log("Loaded " + rows.length + " rows from sheet.");
+
+        const filtered = rows.filter(r => (r.Town && r.State && (r["Story Title"] || r["Story Text"])));
+        log("Filtered to " + filtered.length + " valid story rows.");
+
+        if(!filtered.length){ loadingEl.textContent="No valid stories found in sheet."; return; }
+
+        for(const rec of filtered){
+          try {
+            let lat=parseFloat(rec.Latitude||rec.lat), lng=parseFloat(rec.Longitude||rec.lng);
+            if(!Number.isFinite(lat) || !Number.isFinite(lng)){
+              const town=rec.Town||'', state=rec.State||'';
+              const geo=await geocodeTownState(town,state);
+              if(geo){ lat=geo.lat; lng=geo.lng; }
+            }
+            if(!Number.isFinite(lat)||!Number.isFinite(lng)){ log("Skipping: cannot geocode " + rec.Town + ", " + rec.State); continue; }
+
+            const marker=L.marker([lat,lng]);
+            marker.bindPopup(makePopupHTML(rec), { maxWidth:380 });
+            marker.addTo(markersLayer);
+
+          } catch(errRow){ log("Row error: "+errRow); continue; }
+        }
+
+        loadingEl.style.display='none';
+        log("Map initialization complete.");
+
+      } catch(err){ console.error(err); loadingEl.textContent="Failed to load stories: "+err.message; }
+    })();
+
+  })();
+  </script>
+</body>
+</html>
